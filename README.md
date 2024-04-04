@@ -2,7 +2,9 @@
 
 Use `ghcr.io/opencompl/rv32-snitch-iree` docker image, mount this repo as `/repo` and run cmake:
 ```shell
-cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE=/repo/cmake/riscv_iree.cmake -DRISCV_TOOLCHAIN_ROOT=/repo/build/toolchain_iree_rv32imf -DIREE_HOST_BIN_DIR=/repo/build/iree_compiler/bin
+cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE=/repo/cmake/riscv_iree.cmake \
+-DRISCV_TOOLCHAIN_ROOT=/repo/build/toolchain_iree_rv32imf \
+-DIREE_HOST_BIN_DIR=/repo/build/iree_compiler/bin
 ninja sampoles_simple_vec_mul_simple_int_vec_mul_emitc_static
 ```
 
