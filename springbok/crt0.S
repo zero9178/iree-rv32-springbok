@@ -1,306 +1,319 @@
-# Copyright 2022 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright 2020 ETH Zurich and University of Bologna.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
 
-        .section .text._start
-        .align 2
-        .globl _start
+.section .init
 _start:
-        ###############################################
-        # Put all scalar registers into a known state #
-        ###############################################
-        la   sp, _stack_ptr
-        la   gp, _global_pointer
-        mv   tp, zero
-        mv   t1, zero
-        mv   t2, zero
-        mv   s0, zero
-        mv   s1, zero
-        mv   a1, zero
-        mv   a2, zero
-        mv   a3, zero
-        mv   a4, zero
-        mv   a5, zero
-        mv   a6, zero
-        mv   a7, zero
-        mv   s2, zero
-        mv   s3, zero
-        mv   s4, zero
-        mv   s5, zero
-        mv   s6, zero
-        mv   s7, zero
-        mv   s8, zero
-        mv   s9, zero
-        mv   s10, zero
-        mv   s11, zero
-        mv   t3, zero
-        mv   t4, zero
-        mv   t5, zero
-        mv   t6, zero
+    .globl _start
 
-#ifndef LIBSPRINGBOK_NO_VECTOR_SUPPORT
-        ###############################################
-        # Put all vector registers into a known state #
-        ###############################################
-        # Set vector extension to "initial"
-        csrr a0, mstatus
-        ori a0, a0, 0x600
-        addi a0, a0, -0x200
-        csrw mstatus, a0
-
-        # Set lmul=8 and clear the register file
-        vsetvli t0, zero, e8, m8, tu, mu
-        vmv.v.i v0, 0
-        vmv.v.i v8, 0
-        vmv.v.i v16, 0
-        vmv.v.i v24, 0
-
-        # Set lmul=1
-        vsetvli t0, zero, e8, m1, tu, mu
-
-        # Set vector extension to "clean"
-        xori a0, a0, 0x600
-        csrw mstatus, a0
+#ifdef SNRT_INIT_INT_REGS
+snrt.crt0.init_int_registers:
+    # Clear integer registers
+    mv t0, x0
+    mv t1, x0
+    mv t2, x0
+    mv t3, x0
+    mv t4, x0
+    mv t5, x0
+    mv t6, x0
+    mv a0, x0
+    mv a1, x0
+    mv a2, x0
+    mv a3, x0
+    mv a4, x0
+    mv a5, x0
+    mv a6, x0
+    mv a7, x0
+    mv s0, x0
+    mv s1, x0
+    mv s2, x0
+    mv s3, x0
+    mv s4, x0
+    mv s5, x0
+    mv s6, x0
+    mv s7, x0
+    mv s8, x0
+    mv s9, x0
+    mv s10, x0
+    mv s11, x0
 #endif
 
-#ifndef LIBSPRINGBOK_NO_FLOAT_SUPPORT
-        ###############################################################
-        # Reset all other CSRs, and perform any other processor setup #
-        ###############################################################
-        # Enable floating point unit
-        csrr a0, mstatus
-        li a1, 0x2000
-        or a0, a0, a1
-        csrw mstatus, a0
+#ifdef SNRT_INIT_FP_REGS
+snrt.crt0.init_fp_registers:
+    # Check if core has FP registers otherwise skip
+    csrr    t0, misa
+    andi    t0, t0, (1 << 3) | (1 << 5) # D/F - single/double precision float extension
+    beqz    t0, 3f
+    # Clear FP registers
+    fcvt.d.w f0, zero
+    fcvt.d.w f1, zero
+    fcvt.d.w f2, zero
+    fcvt.d.w f3, zero
+    fcvt.d.w f4, zero
+    fcvt.d.w f5, zero
+    fcvt.d.w f6, zero
+    fcvt.d.w f7, zero
+    fcvt.d.w f8, zero
+    fcvt.d.w f9, zero
+    fcvt.d.w f10, zero
+    fcvt.d.w f11, zero
+    fcvt.d.w f12, zero
+    fcvt.d.w f13, zero
+    fcvt.d.w f14, zero
+    fcvt.d.w f15, zero
+    fcvt.d.w f16, zero
+    fcvt.d.w f17, zero
+    fcvt.d.w f18, zero
+    fcvt.d.w f19, zero
+    fcvt.d.w f20, zero
+    fcvt.d.w f21, zero
+    fcvt.d.w f22, zero
+    fcvt.d.w f23, zero
+    fcvt.d.w f24, zero
+    fcvt.d.w f25, zero
+    fcvt.d.w f26, zero
+    fcvt.d.w f27, zero
+    fcvt.d.w f28, zero
+    fcvt.d.w f29, zero
+    fcvt.d.w f30, zero
+    fcvt.d.w f31, zero
+3:
 #endif
 
-#ifndef LIBSPRINGBOK_NO_EXCEPTION_SUPPORT
-        la a0, exception_handler
-        csrw mtvec, a0
+#ifdef SNRT_INIT_GP
+snrt.crt0.init_global_pointer:
+    # Initialize global pointer
+    .option push
+    .option norelax
+1:  auipc   gp, %pcrel_hi(__global_pointer$)
+    addi    gp, gp, %pcrel_lo(1b)
+    .option pop
 #endif
 
-        #############################################################
-        # Set up stack sentinels                                    #
-        #############################################################
-        jal  ra, _setup_stack_sentinels
+#ifdef SNRT_INIT_CORE_INFO
+snrt.crt0.init_core_info:
+    # Initialize information needed by the following routines
 
-        ##########################
-        # Register fini handlers #
-        ##########################
-        la   a0, __libc_fini_array
-        call atexit
+    # Calculate cluster idx
+    csrr a0, mhartid
+    li   t0, SNRT_BASE_HARTID
+    sub  a0, a0, t0
+    li   a1, SNRT_CLUSTER_CORE_NUM
+    div  t0, a0, a1
 
-        ##################################
-        # Perform C initialization calls #
-        ##################################
-        call __libc_init_array
+    # Calculate cluster-local core ID
+    remu a0, a0, a1
 
-        #############
-        # Call main #
-        #############
-        li   a0, 0 #argv
-        li   a1, 0 #argc
-        li   a2, 0 #envp
-        la   ra, main
-        jalr ra, ra
-        # Save main's return value into s0
-        mv   s0, a0
+    # Calculate cluster's TCDM start address
+    li   a2, SNRT_TCDM_START_ADDR
+    li   t1, SNRT_CLUSTER_OFFSET
+    mul  t0, t1, t0
+    add  a2, a2, t0
 
-        ######################
-        # Call C destructors #
-        ######################
-        li   a1, 0
-        call __call_exitprocs
-
-        # Don't clear the stack if the program returned from main
-        j    1f
-
-_exit:
-        # Save _exit's return value
-        mv   s0, a0
-
-        # Clear the stack
-        la   sp, _stack_ptr
-1:
-        ##########################################################################
-        # Verify stack sentinels are unchanged and that sp is where we expect it #
-        ##########################################################################
-        # Check the stack, and fix it if it's broken
-        jal  ra, _check_stack
-
-        # Was the stack corrupted?
-        beq  a0, zero, 1f
-
-        # The stack was corrupted!
-        # These strings are stored in instruction memory like
-        # this so they can't ever be corrupted.
-        li   t0, 0x63617473 # "stac"
-        li   t1, 0x6f63206b # "k co"
-        li   t2, 0x70757272 # "rrup"
-        li   t3, 0x00646574 # "ted\0"
-        addi sp, sp, -16
-        sw   t0, 0(sp)
-        sw   t1, 4(sp)
-        sw   t2, 8(sp)
-        sw   t3, 12(sp)
-        li   t4, 0 # ERROR logging level
-        .word 0x00A10EFB # simprint t4, sp, a0 (encoded as custom3<func3=0>)
-        addi sp, sp, 16
-1:
-
-        # Restore the application's return value
-        mv   a0, s0
-
-        # Print main's return value
-        # These strings are stored in instruction memory like
-        # this so they can't ever be corrupted.
-        li   t0, 0x6e69616d # "main"
-        li   t1, 0x74657220 # " ret"
-        li   t2, 0x656e7275 # "urne"
-        li   t3, 0x00203a64 # "d: \0"
-        addi sp, sp, -16
-        sw   t0, 0(sp)
-        sw   t1, 4(sp)
-        sw   t2, 8(sp)
-        sw   t3, 12(sp)
-        li   t4, 2 # INFO logging level
-        .word 0x00A10EFB # simprint t4, sp, a0 (encoded as custom3<func3=0>)
-        addi sp, sp, 16
-
-_finish:
-#ifndef LIBSPRINGBOK_NO_EXCEPTION_SUPPORT
-        # Store the application's return value and machine exception program
-        # counter onto the stack
-        addi sp, sp, -8
-        sw   a0, 0(sp)
-        csrr t0, mepc
-        sw   t0, 4(sp)
-#else
-        # Store the application's return value onto the stack
-        addi sp, sp, -4
-        sw   a0, 0(sp)
+    # Calculate cluster's TCDM end address
+    li   t0, SNRT_TCDM_SIZE
+    add  a2, a2, t0
 #endif
-1:
-        .word 0x0000307B # finish (encoded as custom3<func3=3>)
-        j    1b
 
-_setup_stack_sentinels:
-        #######################################
-        # Write our stack sentinels to memory #
-        #######################################
-        la   a0, _stack_start_sentinel
-        li   a1, 0xCAFEF00D
-        sw   a1, 0(a0)
-        sw   a1, 4(a0)
-        sw   a1, 8(a0)
-        sw   a1, 12(a0)
-        sw   a1, 16(a0)
-        sw   a1, 20(a0)
-        sw   a1, 24(a0)
-        sw   a1, 28(a0)
-        sw   a1, 32(a0)
-        sw   a1, 36(a0)
-        sw   a1, 40(a0)
-        sw   a1, 44(a0)
-        sw   a1, 48(a0)
-        sw   a1, 52(a0)
-        sw   a1, 56(a0)
-        sw   a1, 60(a0)
-
-        la   a0, _stack_end_sentinel
-        li   a1, 0xDECAFBAD
-        sw   a1, 0(a0)
-        sw   a1, 4(a0)
-        sw   a1, 8(a0)
-        sw   a1, 12(a0)
-        sw   a1, 16(a0)
-        sw   a1, 20(a0)
-        sw   a1, 24(a0)
-        sw   a1, 28(a0)
-        sw   a1, 32(a0)
-        sw   a1, 36(a0)
-        sw   a1, 40(a0)
-        sw   a1, 44(a0)
-        sw   a1, 48(a0)
-        sw   a1, 52(a0)
-        sw   a1, 56(a0)
-        sw   a1, 60(a0)
-        ret
-
-_check_stack:
-        ########################################################################
-        # Check that our stack sentinels are there and that the stack is empty #
-        ########################################################################
-        # repair the stack pointer if it's broken
-        mv   a0, sp
-        la   sp, _stack_ptr
-        bne  a0, sp, 2f
-
-        la   a0, _stack_start_sentinel
-        addi a1, a0, 64
-        li   a2, 0xCAFEF00D
-1:
-        lw   a3, 0(a0)
-        bne  a2, a3, 2f
-        addi a0, a0, 4
-        bne  a0, a1, 1b
-
-        la   a0, _stack_end_sentinel
-        addi a1, a0, 64
-        li   a2, 0xDECAFBAD
-1:
-        lw   a3, 0(a0)
-        bne  a2, a3, 2f
-        addi a0, a0, 4
-        bne  a0, a1, 1b
-        # stack is fine
-        mv   a0, zero
-        ret
-        # stack corruption!
-2:      li   a0, 1
-        ret
-
-#ifndef LIBSPRINGBOK_NO_EXCEPTION_SUPPORT
-.weak exception_handler
-exception_handler:
-        # Exception occurred
-        # These strings are stored in instruction memory like
-        # this so they can't ever be corrupted.
-        li   t0, 0x65637845 # "Exce"
-        li   t1, 0x6f697470 # "ptio"
-        li   t2, 0x636f206e # "n oc"
-        li   t3, 0x72727563 # "curr"
-        li   t4, 0x00006465 # "ed\0\0"
-        addi sp, sp, -20
-        sw   t0, 0(sp)
-        sw   t1, 4(sp)
-        sw   t2, 8(sp)
-        sw   t3, 12(sp)
-        sw   t4, 16(sp)
-        csrr a0, mcause
-        li   t6, 0 # ERROR logging level
-        .word 0x00A10FFB # simprint t6, sp, a0 (encoded as custom3<func3=0>)
-        addi sp, sp, 20
-        # Store mcause as the reture value
-        mv   s0, a0
-        call print_csrs
-        # Restore the return value to be used in _finish
-        mv   a0, s0
-        # Clear the stack
-        la   sp, _stack_ptr
-        j _finish
-
-.weak print_csrs
-print_csrs:
-        mret
+#ifdef SNRT_INIT_CLS
+snrt.crt0.init_cls:
+    # Reserve space in TCDM for cluster-local storage
+    la        t0, __cdata_end
+    la        t1, __cdata_start
+    sub       t0, t0, t1
+    sub       a2, a2, t0
+    la        t0, __cbss_end
+    la        t1, __cbss_start
+    sub       t0, t0, t1
+    sub       a2, a2, t0
 #endif
+
+#ifdef SNRT_INIT_STACK
+snrt.crt0.init_stack:
+    # TODO colluca: do we need this?
+    # Set 8 bytes aside for the main return value and clear that to zero.
+    addi      a2, a2, -8
+    sw        zero, 0(a2)
+
+    # Compute the relative start address of the stack for each hart.
+    # The stack for hart N starts at the end of the stack of hart N-1.
+    sll       t0, a0, SNRT_LOG2_STACK_SIZE
+
+    # Initialize the stack pointer to the start of the stack
+    sub       sp, a2, t0
+
+    # Calculate the end of the stack, could be used by later routines
+    # to calculate remaining TCDM space
+    sll       t1, a1, t2
+    sub       a2, a2, t1
+
+    # Misalign stacks in the TCDM to reduce banking conflicts
+    slli      t0, a0, 3  # this hart
+    slli      t1, a1, 3  # all harts
+    sub       sp, sp, t0
+    sub       a2, a2, t1
+#endif
+
+#ifdef SNRT_INIT_TLS
+snrt.crt0.init_tls:
+    # Reserve space for thread-local storage at the top of the stack
+    la        t0, __tdata_end
+    la        t1, __tdata_start
+    sub       t0, t0, t1
+    sub       sp, sp, t0
+    la        t0, __tbss_end
+    la        t1, __tbss_start
+    sub       t0, t0, t1
+    sub       sp, sp, t0
+    andi      sp, sp, ~0x7 # align to 8B
+    # Set tp to the base of the tls
+    mv        tp, sp
+    # TODO colluca: why again?
+    andi      sp, sp, ~0x7 # align stack to 8B
+#endif
+
+#ifdef SNRT_INIT_INTERRUPT
+snrt.crt0.init_interrupt:
+    # Prepare interrupts
+    la t0, __snrt_crt0_interrupt_handler
+    csrw   mtvec, t0
+#endif
+
+snrt.crt0.main:
+    call snrt_main
+
+#ifdef SNRT_CRT0_PARK
+snrt.crt0.end:
+1:
+    wfi
+    j       1b
+#endif
+
+#ifdef SNRT_INIT_INTERRUPT
+__snrt_crt0_interrupt_handler:
+    .align 4
+    .globl __snrt_crt0_interrupt_handler
+    # store integer context: 17 registers, align stack to 16
+    addi    sp, sp, -80
+    sw  ra, 64(sp)
+    sw  t0, 60(sp)
+    sw  t1, 56(sp)
+    sw  t2, 52(sp)
+    sw  s0, 48(sp)
+    sw  a0, 44(sp)
+    sw  a1, 40(sp)
+    sw  a2, 36(sp)
+    sw  a3, 32(sp)
+    sw  a4, 28(sp)
+    sw  a5, 24(sp)
+    sw  a6, 20(sp)
+    sw  a7, 16(sp)
+    sw  t3, 12(sp)
+    sw  t4,  8(sp)
+    sw  t5,  4(sp)
+    sw  t6,  0(sp)
+    # store double floating point context: 32*8 bytes
+    csrr    t0, misa
+    andi    t0, t0, (1 << 3) # 3: D - single precision float extension
+    beqz    t0, 1f
+    addi    sp, sp, -256
+    fsd     f0, 248(sp)
+    fsd     f1, 240(sp)
+    fsd     f2, 232(sp)
+    fsd     f3, 224(sp)
+    fsd     f4, 216(sp)
+    fsd     f5, 208(sp)
+    fsd     f6, 200(sp)
+    fsd     f7, 192(sp)
+    fsd     f8, 184(sp)
+    fsd     f9, 176(sp)
+    fsd     f10, 168(sp)
+    fsd     f11, 160(sp)
+    fsd     f12, 152(sp)
+    fsd     f13, 144(sp)
+    fsd     f14, 136(sp)
+    fsd     f15, 128(sp)
+    fsd     f16, 120(sp)
+    fsd     f17, 112(sp)
+    fsd     f18, 104(sp)
+    fsd     f19, 96(sp)
+    fsd     f20, 88(sp)
+    fsd     f21, 80(sp)
+    fsd     f22, 72(sp)
+    fsd     f23, 64(sp)
+    fsd     f24, 56(sp)
+    fsd     f25, 48(sp)
+    fsd     f26, 40(sp)
+    fsd     f27, 32(sp)
+    fsd     f28, 24(sp)
+    fsd     f29, 16(sp)
+    fsd     f30, 8(sp)
+    fsd     f31, 0(sp)
+    # state is stored, can now handle the interrupt
+1:
+    call    __snrt_isr
+    # restore fp context
+    csrr    t0, misa
+    andi    t0, t0, (1 << 3) # 3: D - single precision float extension
+    beqz    t0, 1f
+    fld     f0, 248(sp)
+    fld     f1, 240(sp)
+    fld     f2, 232(sp)
+    fld     f3, 224(sp)
+    fld     f4, 216(sp)
+    fld     f5, 208(sp)
+    fld     f6, 200(sp)
+    fld     f7, 192(sp)
+    fld     f8, 184(sp)
+    fld     f9, 176(sp)
+    fld     f10, 168(sp)
+    fld     f11, 160(sp)
+    fld     f12, 152(sp)
+    fld     f13, 144(sp)
+    fld     f14, 136(sp)
+    fld     f15, 128(sp)
+    fld     f16, 120(sp)
+    fld     f17, 112(sp)
+    fld     f18, 104(sp)
+    fld     f19, 96(sp)
+    fld     f20, 88(sp)
+    fld     f21, 80(sp)
+    fld     f22, 72(sp)
+    fld     f23, 64(sp)
+    fld     f24, 56(sp)
+    fld     f25, 48(sp)
+    fld     f26, 40(sp)
+    fld     f27, 32(sp)
+    fld     f28, 24(sp)
+    fld     f29, 16(sp)
+    fld     f30, 8(sp)
+    fld     f31, 0(sp)
+    addi    sp, sp, 256
+    # restore integer context
+1:
+    lw  t6,  0(sp)
+    lw  t5,  4(sp)
+    lw  t4,  8(sp)
+    lw  t3, 12(sp)
+    lw  a7, 16(sp)
+    lw  a6, 20(sp)
+    lw  a5, 24(sp)
+    lw  a4, 28(sp)
+    lw  a3, 32(sp)
+    lw  a2, 36(sp)
+    lw  a1, 40(sp)
+    lw  a0, 44(sp)
+    lw  s0, 48(sp)
+    lw  t2, 52(sp)
+    lw  t1, 56(sp)
+    lw  t0, 60(sp)
+    lw  ra, 64(sp)
+    addi    sp, sp, 80
+    # return from interrupt context
+    mret
+#endif
+
+# HTIF sections
+.pushsection .htif,"aw",@progbits;
+.align 6; .global tohost; tohost: .dword 0;
+.align 6; .global fromhost; fromhost: .dword 0;

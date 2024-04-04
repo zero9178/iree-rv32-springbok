@@ -35,15 +35,12 @@ endif()
 
 set(RISCV_TOOLCHAIN_NAME clang)
 
-set(RISCV_TOOLCHAIN_ROOT "build/toolchain/toolchain_iree_rv32imf" CACHE PATH "RISC-V compiler path")
-set(CMAKE_FIND_ROOT_PATH ${RISCV_TOOLCHAIN_ROOT})
-list(APPEND CMAKE_PREFIX_PATH "${RISCV_TOOLCHAIN_ROOT}")
-
-set(CMAKE_C_COMPILER "${RISCV_TOOLCHAIN_ROOT}/bin/clang")
-set(CMAKE_CXX_COMPILER "${RISCV_TOOLCHAIN_ROOT}/bin/clang++")
-set(CMAKE_AR "${RISCV_TOOLCHAIN_ROOT}/bin/llvm-ar")
-set(CMAKE_RANLIB "${RISCV_TOOLCHAIN_ROOT}/bin/llvm-ranlib")
-set(CMAKE_STRIP "${RISCV_TOOLCHAIN_ROOT}/bin/llvm-strip")
+set(CMAKE_C_COMPILER "/usr/bin/clang-17")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++-17")
+set(CMAKE_AR "/usr/bin/llvm-ar-17")
+set(CMAKE_RANLIB "/usr/bin/llvm-ranlib-17")
+set(CMAKE_C_COMPILER_TARGET "riscv32-unknown-elf")
+set(CMAKE_CXX_COMPILER_TARGET "riscv32-unknown-elf")
 
 set(RISCV_COMPILER_FLAGS "" CACHE STRING "RISC-V compiler flags for C, CXX, and ASM")
 set(RISCV_COMPILER_FLAGS_CXX)
@@ -55,8 +52,7 @@ set(RISCV_LINKER_FLAGS_EXE)
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_EXTENSIONS OFF)     # Force the usage of _ISOC11_SOURCE
-set(CMAKE_SYSTEM_LIBRARY_PATH "${RISCV_TOOLCHAIN_ROOT}/riscv32-unknown-elf/lib")
-set(RISCV_COMPILER_FLAGS "${RISCV_COMPILER_FLAGS} -menable-experimental-extensions -march=rv32imf_zvl512b_zve32x -mabi=ilp32")
+set(RISCV_COMPILER_FLAGS "${RISCV_COMPILER_FLAGS} -rtlib=compiler-rt -nostdlib -march=rv32imafdzfh -mabi=ilp32d -mcmodel=medany -ftls-model=local-exec -fno-common")
 
 set(CMAKE_C_FLAGS             "${RISCV_COMPILER_FLAGS} ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS           "${RISCV_COMPILER_FLAGS} ${RISCV_COMPILER_FLAGS_CXX} ${CMAKE_CXX_FLAGS}")

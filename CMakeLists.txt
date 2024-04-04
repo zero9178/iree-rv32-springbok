@@ -81,13 +81,13 @@ add_definitions(-DIREE_USER_CONFIG_H="${SPRINGBOK_CONFIG_HEADER}")
 # header files can be found during compilation.
 
 # Springbok BSP-related setting
-add_subdirectory(springbok springbok)
+add_subdirectory(snitch_cluster)
 include(riscv_springbok)
 include_directories(springbok/include)
 
 message(STATUS "Include IREE source at ${IREE_SOURCE_DIR}")
 # Build IREE runtime libraries.
-add_subdirectory(${IREE_SOURCE_DIR} iree)
+add_subdirectory(${IREE_SOURCE_DIR} iree EXCLUDE_FROM_ALL)
 
 # Apply IREE's CMake variables and build options so we can use IREE build
 # functions properly in this project.
@@ -98,12 +98,6 @@ include(springbok_static_module)
 include(springbok_vmvx_module)
 include(springbok_modules)
 include(iree_model_input)
-# softmax op (and mfcc) requires floorf implementation in libm. Use the nano
-# version.
-find_library(m m
-PATHS
-  "${RISCV_TOOLCHAIN_ROOT}/riscv32-unknown-elf/lib/newlib-nano/"
-REQUIRED)
-link_libraries(m)
+
 # Add the included directory here.
 add_subdirectory(samples)

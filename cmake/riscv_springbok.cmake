@@ -14,10 +14,6 @@
 
 # A cmake cache to connect springbok BSP with the executables
 
-if(NOT TARGET springbok)
-  message(FATAL_ERROR "Please include springbok target first")
-endif()
-
 if(NOT DEFINED SPRINGBOK_LINKER_SCRIPT)
   message(FATAL_ERROR "Please specifiy SPRINGBOK_LINKER_SCRIPT path first")
 endif()
@@ -28,8 +24,8 @@ function(add_executable executable)
     _add_executable(${executable} ${ARGN})
   else()
     _add_executable(${executable} ${ARGN})
-    target_link_libraries(${executable} PRIVATE springbok)
-    target_link_options(${executable} PRIVATE "-T${SPRINGBOK_LINKER_SCRIPT}")
+    target_link_libraries(${executable} PRIVATE snitchSetup)
+    #target_link_options(${executable} PRIVATE "-T${SPRINGBOK_LINKER_SCRIPT}")
     target_link_options(${executable} PRIVATE "-nostartfiles")
   endif()
 endfunction()

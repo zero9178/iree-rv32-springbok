@@ -117,7 +117,7 @@ def main():
         snapshot["assets"], ["linux-x86_64.tar"], tmp_dir)
 
     # Install IREE TFLite tool
-    cmd = ("pip3 install %s --no-cache-dir" % whl_file)
+    cmd = ("pip3 install --break-system-packages %s --no-cache-dir" % whl_file)
     os.system(cmd)
 
     # Extract the tarball to ${iree_compiler_dir}
